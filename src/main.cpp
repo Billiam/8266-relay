@@ -2,10 +2,10 @@
 
 #include <ESP8266WiFiMulti.h>
 #include <ESP8266mDNS.h>
-#include <AsyncJson.h>
 #include <ArduinoJson.h>
 #include "ESPAsyncTCP.h"
 #include "ESPAsyncWebServer.h"
+#include "AsyncJson.h"
 
 #include "secrets.h"
 #include "fireplace.h"
@@ -28,10 +28,16 @@ String templateCallback(const String& var)
   return String();
 }
 
-void temperatureEvent() {
+void targetEvent() {
   static char temp[3];
   sprintf(temp, "%d", fireplace.targetTemp());
   events.send(temp, "target-temp", millis());
+}
+
+void temperatureEvent() {
+  static char temp[3];
+  sprintf(temp, "%d", fireplace.temp());
+  events.send(temp, "current-temp", millis());
 }
 
 void handleIndex(AsyncWebServerRequest *request) {
@@ -41,11 +47,29 @@ void handleIndex(AsyncWebServerRequest *request) {
 
 void handleToggle(AsyncWebServerRequest *request) {
   fireplace.toggle();
+  targetEvent();
+  request->send(200);
+}
+
+
+void handleTemp(AsyncWebServerRequest *request, JsonVariant &json) {
+  Serial.println("Received JSON");
+  if (not json.is<JsonObject>()) {
+    request->send(400, "text/plain", "Not an object");
+    return;
+  }
+  auto&& data = json.as<JsonObject>();
+  if (not data["temp"].is<int>()) {
+    request->send(400, "text/plain", "temp is not an integer");
+    return;
+  }
+
+  fireplace.setTemp(data["temp"]);
   temperatureEvent();
   request->send(200);
 }
 
-void handleTemp(AsyncWebServerRequest *request, JsonVariant &json) {
+void handleTarget(AsyncWebServerRequest *request, JsonVariant &json) {
     Serial.println("Received JSON");
     if (not json.is<JsonObject>()) {
       request->send(400, "text/plain", "Not an object");
@@ -61,7 +85,7 @@ void handleTemp(AsyncWebServerRequest *request, JsonVariant &json) {
     }
 
     fireplace.setTarget(data["temp"]);
-    temperatureEvent();
+    targetEvent();
     request->send(200);
 }
 
@@ -97,8 +121,12 @@ void setup() {
   server.on("/", handleIndex);
   server.on("/toggle.json", HTTP_POST, handleToggle);
 
+  AsyncCallbackJsonWebHandler* targetHandler = new AsyncCallbackJsonWebHandler("/target.json", handleTarget);
   AsyncCallbackJsonWebHandler* temperatureHandler = new AsyncCallbackJsonWebHandler("/temp.json", handleTemp);
+
+  server.addHandler(targetHandler);
   server.addHandler(temperatureHandler);
+
   server.begin();
 }
 

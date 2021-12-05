@@ -44,6 +44,8 @@ const char index_html[] PROGMEM = R"=====(
   }
   .target-temperature {
     text-align: center;
+    text-transform: uppercase;
+    font-size:14px;
   }
   .main {
     display: flex;
@@ -274,7 +276,7 @@ const char index_html[] PROGMEM = R"=====(
 
   function updateTargetTemp() {
     setLoading()
-    fetch('/temp.json', {
+    fetch('/target.json', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'

@@ -46,6 +46,10 @@ void Fireplace::setTarget(int temperature) {
   this->setOn();
 }
 
+void Fireplace::setTemp(int temperature) {
+  this->_temp = temperature;
+}
+
 void Fireplace::setHeating(bool heating) {
   if (_heating != heating) {
     this->_heatingChanged = true;
