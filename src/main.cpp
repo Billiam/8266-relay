@@ -22,7 +22,7 @@ String templateCallback(const String& var)
 {
   if(var == "TEMPERATURE") return String(fireplace.temp());
   if(var == "TARGET") return String(fireplace.targetTemp());
-  if(var == "HEATING_CLASS") fireplace.heating() ? F(" heating") : String();
+  if(var == "HEATING_CLASS") return fireplace.heating() ? F(" heating") : String();
   if(var == "ACTIVE_CLASS") return fireplace.on() ? F(" active") : String();
 
   return String();
