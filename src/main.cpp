@@ -23,7 +23,7 @@ RBD::Timer pidTimer;
 unsigned long startTime;
 const long maximumOnTime = 1000 * 60 * 60 * 3.5;
 const uint32_t connectTimeoutMs = 5000;
-const int fireplacePin = 2;
+const int fireplacePin = D3;
 
 String templateCallback(const String& var)
 {
