@@ -3,18 +3,23 @@
 #include <ESP8266WiFiMulti.h>
 #include <ESP8266mDNS.h>
 #include <ArduinoJson.h>
+#include <PID_v1.h>
 #include "ESPAsyncTCP.h"
 #include "ESPAsyncWebServer.h"
 #include "AsyncJson.h"
+#include <RBD_Timer.h>
 
 #include "secrets.h"
 #include "fireplace.h"
 #include "index.h"
+ 
 
 AsyncWebServer server(80);
 AsyncEventSource events("/events");
 ESP8266WiFiMulti wifiMulti;
 Fireplace fireplace;
+RBD::Timer pidTimer;
+
 
 const uint32_t connectTimeoutMs = 5000;
 
@@ -51,7 +56,6 @@ void handleToggle(AsyncWebServerRequest *request) {
   request->send(200);
 }
 
-
 void handleTemp(AsyncWebServerRequest *request, JsonVariant &json) {
   Serial.println("Received JSON");
   if (not json.is<JsonObject>()) {
@@ -65,6 +69,7 @@ void handleTemp(AsyncWebServerRequest *request, JsonVariant &json) {
   }
 
   fireplace.setTemp(data["temp"]);
+
   temperatureEvent();
   request->send(200);
 }
@@ -115,7 +120,7 @@ void setup() {
     MDNS.addService("http", "tcp", 80);
     Serial.println("mDNS responder started");
   }
-    
+
   server.addHandler(&events);
 
   server.on("/", handleIndex);
@@ -127,9 +132,29 @@ void setup() {
   server.addHandler(targetHandler);
   server.addHandler(temperatureHandler);
 
+  pidTimer.setTimeout(3000);
+  pidTimer.restart();
+
   server.begin();
 }
 
+void manageTemp() {
+  if (fireplace.on()) {
+    int target = fireplace.targetTemp();
+    int current = fireplace.temp();
+    if (current > 85) {
+      fireplace.setOff();
+      return;
+    }
+    if (current > 30 && target > 50) {
+      if (current > target + 1) {
+        fireplace.setHeating(false);
+      } else if (current <= target - 2) {
+        fireplace.setHeating(true);
+      }
+    }
+  }
+}
 void loop() {
   if (wifiMulti.run(connectTimeoutMs) != WL_CONNECTED) {
     return;
@@ -137,10 +162,16 @@ void loop() {
   if (!MDNS.update()) {
     Serial.println("Error updating MDNS");
   }
+  if (pidTimer.onRestart()) {
+    manageTemp();
+  }
   if (fireplace.onChanged()) {
     events.send(fireplace.on() ? "true" : "false", "on", millis());
   }
   if (fireplace.heatingChanged()) {
     events.send(fireplace.heating() ? "true" : "false", "heating", millis());
+  }
+  if (fireplace.heating()) {
+    //set pin mode
   }
 }
