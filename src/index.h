@@ -28,13 +28,13 @@ const char index_html[] PROGMEM = R"=====(
   }
   .current-temperature {
     font-weight: bold;
-    font-size: 30px;
-    font-size: 30vh;
+    font-size: 30vw;
   }
   .temp-buttons {
     display: flex;
     flex-direction: column;
-    width: 30px;
+    width: 60px;
+    overflow: hidden;
     justify-content: space-between;
   }
   .temperature {
@@ -51,6 +51,7 @@ const char index_html[] PROGMEM = R"=====(
     display: flex;
     justify-content: space-between;
     height: 100%%;
+    width: 100%%;
     box-sizing: border-box;
     align-items: center;
     max-width: 800px;
@@ -118,6 +119,21 @@ const char index_html[] PROGMEM = R"=====(
     }
     to {
       transform: rotate(359deg);
+    }
+  }
+  @media only screen and (max-width: 350px) {
+    .main {
+      flex-direction: column;
+      justify-content: center;
+      align-items: stretch;
+    }
+    .current-temperature {
+      font-size: 50vw;
+    }
+  }
+  @media only screen and (min-width: 900px) {
+    .current-temperature {
+      font-size: 270px;
     }
   }
 </style>

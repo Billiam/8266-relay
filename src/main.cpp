@@ -20,8 +20,10 @@ ESP8266WiFiMulti wifiMulti;
 Fireplace fireplace;
 RBD::Timer pidTimer;
 
-
+unsigned long startTime;
+const long maximumOnTime = 1000 * 60 * 60 * 3.5;
 const uint32_t connectTimeoutMs = 5000;
+const int fireplacePin = 2;
 
 String templateCallback(const String& var)
 {
@@ -97,6 +99,8 @@ void handleTarget(AsyncWebServerRequest *request, JsonVariant &json) {
 void setup() {
   Serial.begin(9600);
 
+  pinMode(fireplacePin, OUTPUT);
+
   wifiMulti.addAP(WIFI_SSID1, WIFI_PASS1);
   wifiMulti.addAP(WIFI_SSID2, WIFI_PASS2);
   WiFi.hostname("Fireplace");
@@ -139,22 +143,24 @@ void setup() {
 }
 
 void manageTemp() {
-  if (fireplace.on()) {
-    int target = fireplace.targetTemp();
-    int current = fireplace.temp();
-    if (current > 85) {
-      fireplace.setOff();
-      return;
-    }
-    if (current > 30 && target > 50) {
-      if (current > target + 1) {
-        fireplace.setHeating(false);
-      } else if (current <= target - 2) {
-        fireplace.setHeating(true);
-      }
+  if (!fireplace.on()) {
+    return;
+  }
+  int target = fireplace.targetTemp();
+  int current = fireplace.temp();
+  if (current > 85) {
+    fireplace.setOff();
+    return;
+  }
+  if (current > 30 && target > 50) {
+    if (current > target + 1) {
+      fireplace.setHeating(false);
+    } else if (current <= target - 2) {
+      fireplace.setHeating(true);
     }
   }
 }
+
 void loop() {
   if (wifiMulti.run(connectTimeoutMs) != WL_CONNECTED) {
     return;
@@ -170,8 +176,14 @@ void loop() {
   }
   if (fireplace.heatingChanged()) {
     events.send(fireplace.heating() ? "true" : "false", "heating", millis());
+    if (fireplace.on()) {
+      startTime = millis();
+    }
   }
-  if (fireplace.heating()) {
-    //set pin mode
+
+  if (fireplace.heating() && millis() - startTime > maximumOnTime) {
+    fireplace.setOff();
   }
+
+  digitalWrite(fireplacePin, fireplace.heating() ? HIGH : LOW);
 }
