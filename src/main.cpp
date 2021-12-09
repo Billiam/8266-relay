@@ -3,9 +3,9 @@
 #include <ESP8266WiFiMulti.h>
 #include <ESP8266mDNS.h>
 #include <ArduinoJson.h>
-#include <PID_v1.h>
 #include "ESPAsyncTCP.h"
 #include "ESPAsyncWebServer.h"
+#include <AsyncElegantOTA.h>
 #include "AsyncJson.h"
 #include <RBD_Timer.h>
 
@@ -23,7 +23,7 @@ RBD::Timer pidTimer;
 unsigned long startTime;
 const long maximumOnTime = 1000 * 60 * 60 * 3.5;
 const uint32_t connectTimeoutMs = 5000;
-const int fireplacePin = D3;
+const int fireplacePin = D5;
 
 String templateCallback(const String& var)
 {
@@ -139,6 +139,7 @@ void setup() {
   pidTimer.setTimeout(3000);
   pidTimer.restart();
 
+  AsyncElegantOTA.begin(&server, OTA_USERNAME, OTA_PASSWORD);
   server.begin();
 }
 
