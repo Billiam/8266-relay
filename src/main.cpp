@@ -154,9 +154,9 @@ void manageTemp() {
     return;
   }
   if (current > 30 && target > 50) {
-    if (current > target + 1) {
+    if (current > target) {
       fireplace.setHeating(false);
-    } else if (current <= target - 2) {
+    } else if (current < target - 1) {
       fireplace.setHeating(true);
     }
   }
