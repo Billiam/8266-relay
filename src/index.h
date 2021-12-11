@@ -112,6 +112,32 @@ const char index_html[] PROGMEM = R"=====(
   .loading svg {
     animation: rotation 2s infinite linear;
   }
+  .wrapper {
+    position: relative;
+  }
+  .disconnected::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: rgba(0, 0, 0, 0.9);
+    z-index: 100;
+  }
+  .reload {
+    position: absolute;
+    display: none;
+    z-index: 150;
+    font-size: 30px;
+    transform: translateY(-50%%);
+    left: 0;
+    right: 0;
+    text-align: center;
+  }
+  .disconnected .reload {
+    display: block;
+  }
 
   @keyframes rotation {
     from {
@@ -139,7 +165,7 @@ const char index_html[] PROGMEM = R"=====(
 </style>
 </head>
 
-<body>
+<body class="wrapper">
   <section class="main">
     <button class="fire %HEATING_CLASS% %ACTIVE_CLASS%" onclick="toggle()">
       <svg fill="currentColor" viewbox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
@@ -162,12 +188,17 @@ const char index_html[] PROGMEM = R"=====(
       </div>
     </div>
     <div class="loading" style="display: none">
-      <svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" viewBox="0 0 1200 1200"><rect x="0" y="0" width="1200" height="1200" fill="none" stroke="none" /><path d="M600 0C308.74 0 66.009 207.555 11.499 482.812h166.553C229.37 297.756 398.603 161.719 600 161.719c121.069 0 230.474 49.195 309.668 128.613l-192.48 192.48H1200V0l-175.781 175.781C915.653 67.181 765.698 0 600 0zM0 717.188V1200l175.781-175.781C284.346 1132.819 434.302 1200 600 1200c291.26 0 533.991-207.555 588.501-482.812h-166.553C970.631 902.243 801.396 1038.281 600 1038.281c-121.069 0-230.474-49.195-309.668-128.613l192.48-192.48H0z" fill="currentColor"/></svg>    </div>
+      <svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" viewBox="0 0 1200 1200"><rect x="0" y="0" width="1200" height="1200" fill="none" stroke="none" /><path d="M600 0C308.74 0 66.009 207.555 11.499 482.812h166.553C229.37 297.756 398.603 161.719 600 161.719c121.069 0 230.474 49.195 309.668 128.613l-192.48 192.48H1200V0l-175.781 175.781C915.653 67.181 765.698 0 600 0zM0 717.188V1200l175.781-175.781C284.346 1132.819 434.302 1200 600 1200c291.26 0 533.991-207.555 588.501-482.812h-166.553C970.631 902.243 801.396 1038.281 600 1038.281c-121.069 0-230.474-49.195-309.668-128.613l192.48-192.48H0z" fill="currentColor"/></svg>
+    </div>
+    <div class="reload">
+      Disconnected, please reload
+    </div>
   </section>
   <script>
   var tempElement = document.querySelector('.current-temperature')
   var targetElement = document.querySelector('.target-temperature')
   var flameElement = document.querySelector('.fire')
+  var wrapperElement = document.querySelector('.wrapper')
 
   var currentTemperature = tempElement.getAttribute('data-temperature')
   var loading = document.querySelector('.loading')
@@ -180,9 +211,9 @@ const char index_html[] PROGMEM = R"=====(
   var pendingTemperature = targetTemperature
 
   var debounceUpdateTargetTemp = debounce(updateTargetTemp, 200)
-  
+  var source
   if (!!window.EventSource) {
-    var source = new EventSource('/events')
+    source = new EventSource('/events')
     
     source.addEventListener('open', function(e) {
       console.log("Events Connected");
@@ -258,10 +289,12 @@ const char index_html[] PROGMEM = R"=====(
   }
 
   function changeTargetTemp(offset) {
-    pendingTemperature = pendingTemperature == null ? currentTemperature : pendingTemperature
-
     if (!pendingTemperature) {
-      pendingTemperature = offset > 0 ? 55 : 0
+      if (currentTemperature) {
+        pendingTemperature = currentTemperature
+      } else {
+        pendingTemperature = offset > 0 ? 55 : 0
+      }
     } else {
       pendingTemperature += offset
     }
@@ -290,6 +323,45 @@ const char index_html[] PROGMEM = R"=====(
     })    
   }
 
+  function visibilityChangeEvent() {
+    var hidden, visibilityChange
+    if (typeof document.hidden !== "undefined") { // Opera 12.10 and Firefox 18 and later support
+      hidden = "hidden";
+      visibilityChange = "visibilitychange";
+    } else if (typeof document.msHidden !== "undefined") {
+      hidden = "msHidden";
+      visibilityChange = "msvisibilitychange";
+    } else if (typeof document.webkitHidden !== "undefined") {
+      hidden = "webkitHidden";
+      visibilityChange = "webkitvisibilitychange";
+    }
+    return [hidden, visibilityChange]
+  }
+
+  function initDisconnect() {
+    var props = visibilityChangeEvent()
+    var hidden = props[0]
+    var event = props[1]
+    var idleTimer
+
+    document.addEventListener(event, function () {
+      clearTimeout(idleTimer)
+      if (document[hidden]) {
+        idleTimer = setTimeout(function() {
+          console.log("visibility timed out")
+          if (source) {
+            source.close()
+          }
+          renderReload()
+        }, 60000)
+      }
+    }, false)
+  }
+
+  function renderReload() {
+    wrapperElement.classList.add('disconnected')
+  }
+  
   function updateTargetTemp() {
     setLoading()
     fetch('/target.json', {
@@ -310,6 +382,7 @@ const char index_html[] PROGMEM = R"=====(
   }
 
   document.addEventListener('DOMContentLoaded', function() {
+    initDisconnect()
     renderPendingTemperature()
   })
   </script>
